@@ -1,0 +1,193 @@
+<!-- Quiz App Game (Bootstrap Layout) -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha512-DxV+EoADOkOygM4IR9yXP8Sb2qwgidEmeqAEmDKIOfPRQZOWbXCzLC6vjbZyy0vPisbH2SyW27+ddLVCN+OMzQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<style>
+  body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #0773ff;
+  }
+  .quiz-container {
+    max-width: 500px;
+    margin: 50px auto;
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+  .quiz-question {
+    font-weight: 600;
+    font-size: 1.2rem;
+  }
+  /* Edited */
+  .quiz-options button {
+    margin-top: 10px;
+    width: 100%;
+    color: blue;
+    border: 2px blue solid;
+    padding: 15px;
+    border-radius: 10px;
+  }
+
+  /* edited */
+  .quiz-options button:hover {
+    background-color: blue;
+    color: white;
+    border: none;
+  }
+
+  .quiz-feedback {
+    font-weight: bold;
+    margin-top: 15px;
+    min-height: 24px;
+  }
+
+  /* Edited */
+  .btn-light {
+    position: absolute;
+    bottom: 10;
+    background-color: blue;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    text-transform: capitalize;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  /* Edited */
+  .btn-light:hover {
+    background-color: #0650b1;
+  }
+
+
+  /* Edited */
+  #next-btn {
+    margin-top: 10px;
+    color: blue;
+    border: 2px blue solid;
+    padding: 15px;
+    border-radius: 10px;
+  }
+
+  #next-btn:hover {
+    background-color: blue;
+    color: white;
+    border: none;
+  }
+
+  #quiz-result {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-top: 20px;
+  }
+</style>
+
+<div class="quiz-container">
+  <h2 class="text-center text-primary">Quiz Informatika</h2>
+  <div id="quiz">
+    <div class="quiz-question" id="question">Pertanyaan akan muncul di sini</div>
+    <div class="quiz-options mt-3" id="options"></div>
+    <div class="quiz-feedback text-primary" id="feedback"></div>
+    <button class="btn btn-primary mt-3 w-100" id="next-btn">
+      Selanjutnya
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <div id="quiz-result" class="text-center text-success"></div>
+  </div>
+</div>
+
+<a href="/index.html" class="btn btn-light">
+  <i class="fa-solid fa-arrow-left"></i>
+  kembali</a>
+
+<script>
+  const questions = [
+    {
+      question: "Apa kepanjangan dari CPU?",
+      options: ["Central Programming Unit", "Central Processing Unit", "Control Processing Unit", "Central Program Unit"],
+      answer: "Central Processing Unit"
+    },
+    {
+      question: "Bahasa pemrograman manakah yang biasa digunakan untuk pengembangan web di sisi klien (frontend)?",
+      options: ["Python", "Java", "JavaScript", "C#"],
+      answer: "JavaScript"
+    },
+    {
+      question: "Apa fungsi utama dari sistem operasi?",
+      options: ["Mengatur perangkat keras dan perangkat lunak", "Menjalankan program antivirus", "Mengedit video", "Menulis dokumen"],
+      answer: "Mengatur perangkat keras dan perangkat lunak"
+    },
+    {
+      question: "Istilah 'bug' dalam pemrograman merujuk pada...",
+      options: ["Fitur baru", "Error dalam kode", "Nama file", "Database"],
+      answer: "Error dalam kode"
+    },
+    {
+      question: "Manakah dari berikut ini yang termasuk sistem operasi open source?",
+      options: ["Windows", "macOS", "Linux", "iOS"],
+      answer: "Linux"
+    }
+  ];
+
+  let currentQuestion = 0;
+  let score = 0;
+
+  const questionEl = document.getElementById("question");
+  const optionsEl = document.getElementById("options");
+  const feedbackEl = document.getElementById("feedback");
+  const nextBtn = document.getElementById("next-btn");
+  const resultEl = document.getElementById("quiz-result");
+
+  function showQuestion() {
+    const q = questions[currentQuestion];
+    questionEl.textContent = q.question;
+    optionsEl.innerHTML = "";
+    feedbackEl.textContent = "";
+    q.options.forEach(opt => {
+      const btn = document.createElement("button");
+      btn.className = "btn btn-outline-primary";
+      btn.textContent = opt;
+      btn.onclick = () => selectAnswer(opt);
+      optionsEl.appendChild(btn);
+    });
+  }
+
+  function selectAnswer(selected) {
+    const correct = questions[currentQuestion].answer;
+    if (selected === correct) {
+      score++;
+      feedbackEl.textContent = "Jawaban benar!";
+      feedbackEl.classList.remove("text-danger");
+      feedbackEl.classList.add("text-success");
+    } else {
+      feedbackEl.textContent = `Jawaban salah! Jawaban benar: ${correct}`;
+      feedbackEl.classList.remove("text-success");
+      feedbackEl.classList.add("text-danger");
+    }
+    Array.from(optionsEl.children).forEach(btn => btn.disabled = true);
+  }
+
+  nextBtn.onclick = () => {
+    if (currentQuestion < questions.length - 1) {
+      currentQuestion++;
+      showQuestion();
+    } else {
+      showResult();
+    }
+  };
+
+  function showResult() {
+    questionEl.textContent = "Quiz Selesai!";
+    optionsEl.innerHTML = "";
+    feedbackEl.textContent = "";
+    nextBtn.style.display = "none";
+    const average = questions.length / 2;
+    resultEl.innerHTML = `Skor Anda: ${score}/${questions.length}<br>` +
+      (score > average ?
+        "<span class='text-success'>Wih pengetahuan kamu tentang informatika bagus, saatnya join ke teknik informatika!</span>" :
+        "<span class='text-danger'>Wah pengetahuan kamu tentang informatika kurang ya, ayo join teknik informatika agar kamu lebih banyak tahu tentang dunia teknologi!</span>");
+  }
+
+  showQuestion();
+</script>
