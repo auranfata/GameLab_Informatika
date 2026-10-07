@@ -1,0 +1,173 @@
+/* Import Font Poppins */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+/* --- TEMA GLOBAL --- */
+body {
+  background-color: #0773ff; /* Biru utama */
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
+}
+
+.card {
+  border: none;
+}
+
+.card img {
+  max-height: 300px;
+  object-fit: cover;
+}
+
+/* Tombol Kembali Global */
+.btn-back {
+  background-color: #fff;
+  color: #0773ff;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 8px 20px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: 0.3s;
+}
+.btn-back:hover {
+  background-color: #e6f0ff;
+  color: #0773ff;
+}
+
+/* --- BOUNCE BALL --- */
+#gameCanvas {
+  display: block;
+  margin: 0 auto;
+  background-color: black;
+  border: 2px solid #fff;
+}
+#hud {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+#score { font-size: 18px; }
+#lives img { width: 24px; height: 24px; margin-left: 5px; }
+#message {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #000;
+  background: #93DA97;
+  padding: 20px;
+  border-radius: 10px;
+}
+.hidden { display: none; }
+
+/* --- TIC TAC TOE --- */
+.grid-template {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  max-width: 300px;
+  margin: auto;
+}
+.cell {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  font-size: 2rem;
+  font-weight: bold;
+  background-color: #e6f0ff;
+  border: 2px solid #000;
+  border-radius: 8px;
+  transition: 0.2s;
+}
+.cell:hover {
+  box-shadow: 0 0 10px #00ffff;
+  transform: scale(1.05);
+}
+
+/* --- QUIZ APP --- */
+.quiz-container {
+  max-width: 500px;
+  margin: 50px auto;
+  background: white;
+  border-radius: 10px;
+  padding: 30px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  color: #333; /* Teks gelap di atas background putih */
+}
+.quiz-question {
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+.quiz-options button {
+  margin-top: 10px;
+  width: 100%;
+  color: #0773ff;
+  border: 2px solid #0773ff;
+  padding: 10px;
+  border-radius: 10px;
+  background: transparent;
+  transition: 0.3s;
+}
+.quiz-options button:hover {
+  background-color: #0773ff;
+  color: white;
+}
+.quiz-feedback {
+  font-weight: bold;
+  margin-top: 15px;
+  min-height: 24px;
+}
+
+/* Tambahan untuk Tic Tac Toe Highlight Kemenangan */
+.cell.win-highlight {
+  background-color: #93DA97 !important;
+  color: #fff !important;
+  border-color: #28a745;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+}
+
+/* --- MEMORY GAME --- */
+.memory-board {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.memory-card {
+  aspect-ratio: 1 / 1;
+  background: #0773ff; /* Sesuaikan dengan warna tema biru */
+  color: #0773ff; /* Sembunyikan icon saat belum dibalik */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  border-radius: 10px;
+  border: 2px solid #0558c7;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.3s;
+}
+
+.memory-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px rgba(7, 115, 255, 0.5);
+}
+
+.memory-card.flipped {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+
+.memory-card.matched {
+  background: #2ed573; /* Hijau sukses */
+  color: #fff;
+  border-color: #2ed573;
+  pointer-events: none;
+}
