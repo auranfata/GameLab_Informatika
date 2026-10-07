@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cari Kata</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../../style.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d6efd; /* Sesuai UI referensi */
+            touch-action: manipulation;
+        }
+
+        .grid-container {
+            position: relative;
+            touch-action: none; /* Mencegah scrolling saat drag di area grid */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .letter-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 10;
+            position: relative;
+            transition: transform 0.1s;
+        }
+
+        /* Garis Sorotan (Highlight) saat mendrag atau berhasil */
+        .highlight-line {
+            position: absolute;
+            border-radius: 9999px;
+            transform-origin: center;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.5;
+        }
+
+        .highlight-temp {
+            background-color: #f59e0b; /* Warna orange sementara */
+        }
+
+        .word-item {
+            transition: all 0.3s;
+        }
+        
+        .word-found {
+            text-decoration: line-through;
+            color: #9ca3af;
+            background-color: #f3f4f6;
+        }
+
+        /* Animasi Card Muncul */
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop {
+            animation: popIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 md:p-8">
+
+    <!-- Layar 1: Menu Kategori -->
+    <div id="menu-screen" class="bg-white rounded-2xl shadow-2xl p-6 md:p-10 w-full max-w-lg text-center animate-pop">
+        <h1 class="text-3xl font-bold text-[#0d6efd] mb-2">Game Cari Kata</h1>
+        <p class="text-gray-500 mb-8">Pilih kategori untuk memulai permainan</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onclick="startGame('hewan')" class="py-4 px-6 bg-gray-50 hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all shadow-sm">
+                Nama Hewan
+            </button>
+            <button onclick="startGame('kota')" class="py-4 px-6 bg-gray-50 hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all shadow-sm">
+                Nama Kota
+            </button>
+            <button onclick="startGame('pemrograman')" class="py-4 px-6 bg-gray-50 hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all shadow-sm">
+                Pemrograman
+            </button>
+            <button onclick="startGame('makanan')" class="py-4 px-6 bg-gray-50 hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all shadow-sm">
+                Nama Makanan
+            </button>
+        </div>
+        <a href="../../index.html" class="btn-back justify-content-center w-100 mt-6">
+      <i class="fa-solid fa-arrow-left"></i> Kembali ke Dashboard
+    </a>
+    </div>
+
+    <!-- Layar 2: Area Permainan -->
+    <div id="game-screen" class="hidden bg-white rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-3xl animate-pop flex-col items-center">
+        <!-- Header & Kata yang dicari -->
+        <div class="w-full text-center mb-6">
+            <h2 id="category-title" class="text-2xl font-bold text-[#0d6efd] capitalize mb-4">Kategori</h2>
+            <div id="word-list" class="flex flex-wrap justify-center gap-2 md:gap-3">
+                <!-- Daftar kata akan dirender di sini -->
+            </div>
+        </div>
+
+        <!-- Banner Kemenangan -->
+        <div id="win-banner" class="hidden w-full bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-xl mb-6 text-center font-bold">
+            Hebat! Kamu berhasil menemukan semua kata!
+        </div>
+
+        <!-- Grid Permainan -->
+        <div class="bg-gray-50 p-2 md:p-4 rounded-xl border border-gray-100 shadow-inner mb-6 overflow-hidden flex justify-center">
+            <div id="grid-container" class="grid-container grid gap-1 relative">
+                <!-- Huruf dan garis higlight akan dirender di sini -->
+            </div>
+        </div>
+
+        <!-- Kontrol Bawah -->
+        <div class="w-full flex justify-center mt-auto">
+            <button onclick="showMenu()" class="flex items-center text-gray-500 hover:text-[#0d6efd] font-semibold py-2 px-4 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Kembali ke Kategori
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- LOGIKA WEB AUDIO API (Suara Prosedural) ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+
+            if (type === 'drag') {
+                // Suara pop/klik ringan
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, now);
+                oscillator.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+                gainNode.gain.setValueAtTime(0.05, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                oscillator.start(now);
+                oscillator.stop(now + 0.05);
+            } else if (type === 'success') {
+                // Suara chime/benar (2 nada)
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(523.25, now); // C5
+                oscillator.frequency.setValueAtTime(880.00, now + 0.1); // A5
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
+                oscillator.start(now);
+                oscillator.stop(now + 0.3);
+            } else if (type === 'fail') {
+                // Suara buzz/salah
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, now);
+                oscillator.frequency.linearRampToValueAtTime(100, now + 0.2);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
+                oscillator.start(now);
+                oscillator.stop(now + 0.2);
+            }
+        }
+
+        // --- DATA KATA ---
+        const categories = {
+            hewan: ["KUCING", "ANJING", "GAJAH", "JERAPAH", "HARIMAU", "KELINCI"],
+            kota: ["JAKARTA", "BANDUNG", "SURABAYA", "MEDAN", "DENPASAR", "CIREBON"],
+            pemrograman: ["PYTHON", "JAVASCRIPT", "GOLANG", "KOTLIN", "SWIFT", "PHP"],
+            makanan: ["RENDANG", "BAKSO", "SATE", "SOTO", "GUDEG", "PEMPEK"]
+        };
+
+        const colors = ['#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899'];
+        
+        // State Permainan
+        let currentWords = [];
+        let foundWords = [];
+        let gridSize = 10;
+        let grid = [];
+        let isDragging = false;
+        let startCell = null;
+        let currentTempLine = null;
+        let lastDragCell = null;
+
+        // Elemen DOM
+        const menuScreen = document.getElementById('menu-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const gridContainer = document.getElementById('grid-container');
+        const wordListEl = document.getElementById('word-list');
+        const categoryTitle = document.getElementById('category-title');
+        const winBanner = document.getElementById('win-banner');
+
+        function showMenu() {
+            gameScreen.classList.add('hidden');
+            gameScreen.classList.remove('flex');
+            menuScreen.classList.remove('hidden');
+        }
+
+        function startGame(categoryKey) {
+            initAudio(); // Initialize audio context on first user interaction
+            currentWords = categories[categoryKey].sort(() => 0.5 - Math.random()).slice(0, 5); // Ambil 5 kata acak
+            foundWords = [];
+            
+            categoryTitle.textContent = categoryKey;
+            winBanner.classList.add('hidden');
+            
+            menuScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('flex');
+            
+            renderWordList();
+            generateGridData();
+            renderGrid();
+        }
+
+        function renderWordList() {
+            wordListEl.innerHTML = '';
+            currentWords.forEach(word => {
+                const el = document.createElement('div');
+                el.id = `word-${word}`;
+                el.className = 'word-item px-3 py-1 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-full text-sm md:text-base';
+                el.textContent = word;
+                wordListEl.appendChild(el);
+            });
+        }
+
+        function generateGridData() {
+            grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(''));
+            const dirs = [[0,1], [1,0], [1,1], [-1,1], [0,-1], [-1,0], [-1,-1], [1,-1]]; // 8 Arah
+
+            currentWords.forEach(word => {
+                let placed = false;
+                let attempts = 0;
+                while (!placed && attempts < 200) {
+                    attempts++;
+                    const dir = dirs[Math.floor(Math.random() * dirs.length)];
+                    const row = Math.floor(Math.random() * gridSize);
+                    const col = Math.floor(Math.random() * gridSize);
+
+                    let canPlace = true;
+                    for (let i = 0; i < word.length; i++) {
+                        const r = row + i * dir[0];
+                        const c = col + i * dir[1];
+                        if (r < 0 || r >= gridSize || c < 0 || c >= gridSize || (grid[r][c] !== '' && grid[r][c] !== word[i])) {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+
+                    if (canPlace) {
+                        for (let i = 0; i < word.length; i++) {
+                            const r = row + i * dir[0];
+                            const c = col + i * dir[1];
+                            grid[r][c] = word[i];
+                        }
+                        placed = true;
+                    }
+                }
+            });
+
+            // Isi kotak kosong dengan huruf acak
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+                    }
+                }
+            }
+        }
+
+        function renderGrid() {
+            gridContainer.innerHTML = '';
+            gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, minmax(0, 1fr))`;
+            
+            // Adjust cell size based on screen dynamically via Tailwind classes
+            const cellSizeClass = window.innerWidth < 768 ? 'w-8 h-8 text-lg' : 'w-10 h-10 text-xl';
+
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = `letter-cell ${cellSizeClass} text-gray-800 rounded-md`;
+                    cell.textContent = grid[r][c];
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    gridContainer.appendChild(cell);
+                }
+            }
+
+            // Pasang event listeners untuk Drag/Touch (hanya sekali per render)
+            gridContainer.addEventListener('pointerdown', handlePointerDown);
+            window.addEventListener('pointermove', handlePointerMove); // Ke window agar drag ke luar tidak macet
+            window.addEventListener('pointerup', handlePointerUp);
+        }
+
+        function getCellFromPointer(e) {
+            // Support sentuhan multi/mouse
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            if (clientX === undefined) return null;
+
+            const target = document.elementFromPoint(clientX, clientY);
+            return target && target.classList.contains('letter-cell') ? target : null;
+        }
+
+        function drawHighlightLine(cell1, cell2, isTemp = false, color = '') {
+            const rect1 = cell1.getBoundingClientRect();
+            const rect2 = cell2.getBoundingClientRect();
+            const containerRect = gridContainer.getBoundingClientRect();
+
+            const x1 = rect1.left + rect1.width / 2 - containerRect.left;
+            const y1 = rect1.top + rect1.height / 2 - containerRect.top;
+            const x2 = rect2.left + rect2.width / 2 - containerRect.left;
+            const y2 = rect2.top + rect2.height / 2 - containerRect.top;
+
+            const length = Math.hypot(x2 - x1, y2 - y1);
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+
+            const padding = rect1.width * 0.9; 
+            const finalLength = length + padding;
+
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            const line = document.createElement('div');
+            line.className = 'highlight-line';
+            if (isTemp) {
+                line.classList.add('highlight-temp');
+                line.id = 'temp-line';
+            } else {
+                line.style.backgroundColor = color;
+            }
+
+            line.style.width = `${finalLength}px`;
+            line.style.height = `${padding}px`;
+            line.style.left = `${midX - finalLength / 2}px`;
+            line.style.top = `${midY - padding / 2}px`;
+            line.style.transform = `rotate(${angle}rad)`;
+
+            return line;
+        }
+
+        function handlePointerDown(e) {
+            e.preventDefault();
+            const cell = getCellFromPointer(e);
+            if (!cell) return;
+
+            initAudio(); // Pastikan audio ready
+            isDragging = true;
+            startCell = cell;
+            lastDragCell = cell;
+            playSound('drag');
+            
+            // Buat garis temp
+            if (currentTempLine) currentTempLine.remove();
+            currentTempLine = drawHighlightLine(startCell, startCell, true);
+            gridContainer.appendChild(currentTempLine);
+        }
+
+        function handlePointerMove(e) {
+            if (!isDragging || !startCell) return;
+            e.preventDefault();
+
+            const cell = getCellFromPointer(e);
+            if (!cell) return;
+
+            // Update garis temp jika sel berubah dan valid posisinya (Garis Lurus / Diagonal 45 deg)
+            const dr = Math.abs(cell.dataset.r - startCell.dataset.r);
+            const dc = Math.abs(cell.dataset.c - startCell.dataset.c);
+
+            // Validasi arah lurus (horizontal, vertikal, atau diagonal sempurna)
+            if (dr === 0 || dc === 0 || dr === dc) {
+                if (currentTempLine) currentTempLine.remove();
+                currentTempLine = drawHighlightLine(startCell, cell, true);
+                gridContainer.appendChild(currentTempLine);
+
+                // Play drag sound if moving to a new cell
+                if (lastDragCell !== cell) {
+                    playSound('drag');
+                    lastDragCell = cell;
+                }
+            }
+        }
+
+        function handlePointerUp(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            if (currentTempLine) {
+                currentTempLine.remove();
+                currentTempLine = null;
+            }
+
+            const cell = getCellFromPointer(e) || lastDragCell;
+            if (!cell || !startCell) {
+                startCell = null;
+                return;
+            }
+
+            const r1 = parseInt(startCell.dataset.r);
+            const c1 = parseInt(startCell.dataset.c);
+            const r2 = parseInt(cell.dataset.r);
+            const c2 = parseInt(cell.dataset.c);
+
+            const dr = Math.abs(r2 - r1);
+            const dc = Math.abs(c2 - c1);
+
+            // Validasi seleksi
+            if (dr === 0 || dc === 0 || dr === dc) {
+                let selectedWord = "";
+                let stepR = r2 === r1 ? 0 : (r2 > r1 ? 1 : -1);
+                let stepC = c2 === c1 ? 0 : (c2 > c1 ? 1 : -1);
+                
+                let numSteps = Math.max(dr, dc);
+                
+                for (let i = 0; i <= numSteps; i++) {
+                    selectedWord += grid[r1 + i * stepR][c1 + i * stepC];
+                }
+
+                const reversedWord = selectedWord.split('').reverse().join('');
+                let matchedWord = null;
+
+                if (currentWords.includes(selectedWord) && !foundWords.includes(selectedWord)) {
+                    matchedWord = selectedWord;
+                } else if (currentWords.includes(reversedWord) && !foundWords.includes(reversedWord)) {
+                    matchedWord = reversedWord;
+                }
+
+                if (matchedWord) {
+                    // Valid Word!
+                    foundWords.push(matchedWord);
+                    playSound('success');
+                    
+                    // Draw permanent line
+                    const randomColor = colors[foundWords.length % colors.length];
+                    const permLine = drawHighlightLine(startCell, cell, false, randomColor);
+                    gridContainer.appendChild(permLine);
+
+                    // Update UI Word List
+                    const wordEl = document.getElementById(`word-${matchedWord}`);
+                    if (wordEl) {
+                        wordEl.classList.remove('border-gray-200', 'text-gray-700');
+                        wordEl.classList.add('word-found', 'border-transparent');
+                    }
+
+                    checkWinCondition();
+                } else {
+                    if(numSteps > 0) playSound('fail');
+                }
+            } else {
+                 if(dr > 0 || dc > 0) playSound('fail');
+            }
+
+            startCell = null;
+        }
+
+        function checkWinCondition() {
+            if (foundWords.length === currentWords.length) {
+                setTimeout(() => {
+                    winBanner.classList.remove('hidden');
+                    winBanner.classList.add('animate-pop');
+                    // Play win sound (repeated success)
+                    playSound('success');
+                    setTimeout(() => playSound('success'), 300);
+                }, 400);
+            }
+        }
+    </script>
+</body>
+</html>

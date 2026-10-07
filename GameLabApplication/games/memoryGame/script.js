@@ -1,85 +1,147 @@
-const icons = ["💻","💻","⚙️","⚙️","🖥️","🖥️","🖱️","🖱️","⌨️","⌨️","🤖","🤖","☁️","☁️","🐑","🐑","🐄","🐄","🦆","🦆","🐓","🐓","🧑‍💻","🧑‍💻","⛑️","⛑️","🪛","🪛", "👷‍♂️","👷‍♂️"];
-let shuffled = icons.sort(() => 0.5 - Math.random());
+class MemoryGame {
+  constructor() {
+    // 1. Konfigurasi
+    this.icons = [
+      "💻","💻","⚙️","⚙️","🖥️","🖥️","🖱️","🖱️","⌨️","⌨️",
+      "🤖","🤖","☁️","☁️","🐑","🐑","🐄","🐄","🦆","🦆",
+      "🐓","🐓","🧑‍💻","🧑‍💻","⛑️","⛑️","🪛","🪛","👷‍♂️","👷‍♂️"
+    ];
+    this.timeLimit = 80;
+    
+    // 2. State Game
+    this.shuffled = this.icons.sort(() => 0.5 - Math.random());
+    this.firstCard = null;
+    this.lockBoard = false;
+    this.score = 0;
+    this.timeLeft = this.timeLimit;
+    this.timerId = null;
+    this.matchedPairs = 0;
+    this.totalPairs = this.icons.length / 2;
 
-const board = document.getElementById("board");
-let firstCard = null;
-let lockBoard = false;
-let score = 0;
-let timeLeft = 80;
-let timerId;
+    // 3. DOM Elements
+    this.board = document.getElementById("board");
+    this.scoreDisplay = document.getElementById("score");
+    this.timerDisplay = document.getElementById("timer");
+    this.resultMessage = document.getElementById("resultMessage");
+    this.resultModal = new bootstrap.Modal(document.getElementById("resultModal"));
 
-const scoreDisplay = document.getElementById("score");
-const timerDisplay = document.getElementById("timer");
-const resultMessage = document.getElementById("resultMessage");
+    // 4. Audio Setup
+    this.sounds = {
+      flip: new Audio("../../public/assets/collision_sound.wav"),
+      match: new Audio("../../public/assets/win_sound.wav"),
+      gameOver: new Audio("../../public/assets/game_over_sound.wav")
+    };
 
-// Inisialisasi Board
-function initGame() {
-  shuffled.forEach(icon => {
-    const card = document.createElement("div");
-    card.classList.add("card");
-    card.dataset.icon = icon;
-    card.innerHTML = "?";
-    board.appendChild(card);
+    // 5. Mulai Game
+    this.init();
+  }
 
-    card.addEventListener("click", () => handleCardClick(card));
-  });
-
-  // Start Timer
-  timerId = setInterval(() => {
-    timeLeft--;
-    timerDisplay.textContent = timeLeft;
-
-    if (timeLeft <= 0) {
-      endGame(false);
+  playSound(type) {
+    if (this.sounds[type]) {
+      this.sounds[type].currentTime = 0;
+      this.sounds[type].play().catch(() => {});
     }
-  }, 1000);
-}
+  }
 
-function handleCardClick(card) {
-  if (lockBoard || card.classList.contains("flipped")) return;
+  init() {
+    // Render Board
+    this.shuffled.forEach(icon => {
+      const card = document.createElement("div");
+      card.classList.add("memory-card");
+      card.dataset.icon = icon;
+      card.innerHTML = "?"; // Tampilan awal (akan ditutup warna font di CSS)
+      
+      card.addEventListener("click", () => this.handleCardClick(card));
+      this.board.appendChild(card);
+    });
 
-  card.classList.add("flipped");
-  card.innerHTML = card.dataset.icon;
+    // Mulai Timer
+    this.timerId = setInterval(() => this.updateTimer(), 1000);
+  }
 
-  if (!firstCard) {
-    firstCard = card;
-  } else {
-    if (firstCard.dataset.icon === card.dataset.icon) {
-      // Match
-      firstCard.classList.add("matched");
-      card.classList.add("matched");
-      score += 10;
-      scoreDisplay.textContent = score;
-      firstCard = null;
+  updateTimer() {
+    this.timeLeft--;
+    this.timerDisplay.textContent = this.timeLeft;
 
-      // Cek apakah semua kartu matched
-      if (document.querySelectorAll(".matched").length === icons.length) {
-        endGame(true);
-      }
+    if (this.timeLeft <= 0) {
+      this.endGame(false);
+    }
+  }
 
+  handleCardClick(card) {
+    // Cegah klik jika board terkunci, atau kartu yang sama diklik dua kali
+    if (this.lockBoard || card.classList.contains("flipped")) return;
+
+    this.playSound("flip");
+    card.classList.add("flipped");
+    card.innerHTML = card.dataset.icon; // Tampilkan icon sesungguhnya
+
+    if (!this.firstCard) {
+      // Kartu pertama yang dibalik
+      this.firstCard = card;
     } else {
-      // Not match
-      lockBoard = true;
-      setTimeout(() => {
-        firstCard.classList.remove("flipped");
-        card.classList.remove("flipped");
-        firstCard.innerHTML = "?";
-        card.innerHTML = "?";
-        firstCard = null;
-        lockBoard = false;
-      }, 800);
+      // Kartu kedua yang dibalik
+      this.checkMatch(card);
     }
   }
-}
 
-function endGame(win) {
-  clearInterval(timerId);
-  if (win) {
-    resultMessage.textContent = `🎉 Selamat! Kamu berhasil menyelesaikan game dengan skor ${score}`;
-  } else {
-    resultMessage.textContent = `⏳ Waktu habis! Skor akhir kamu ${score}`;
+  checkMatch(secondCard) {
+    const isMatch = this.firstCard.dataset.icon === secondCard.dataset.icon;
+
+    if (isMatch) {
+      this.handleMatch(secondCard);
+    } else {
+      this.handleMismatch(secondCard);
+    }
   }
-  new bootstrap.Modal(document.getElementById("resultModal")).show();
+
+  handleMatch(secondCard) {
+    this.playSound("match");
+    this.firstCard.classList.add("matched");
+    secondCard.classList.add("matched");
+    
+    this.score += 10;
+    this.scoreDisplay.textContent = this.score;
+    this.matchedPairs++;
+    this.firstCard = null;
+
+    // Cek kondisi menang
+    if (this.matchedPairs === this.totalPairs) {
+      this.endGame(true);
+    }
+  }
+
+  handleMismatch(secondCard) {
+    this.lockBoard = true; // Kunci sementara agar tidak bisa klik kartu ke-3
+    
+    setTimeout(() => {
+      this.firstCard.classList.remove("flipped");
+      secondCard.classList.remove("flipped");
+      
+      this.firstCard.innerHTML = "?";
+      secondCard.innerHTML = "?";
+      
+      this.firstCard = null;
+      this.lockBoard = false;
+    }, 800);
+  }
+
+  endGame(isWin) {
+    clearInterval(this.timerId);
+    
+    if (isWin) {
+      this.playSound("match");
+      this.resultMessage.innerHTML = `🎉 Selamat! Kamu menang!<br><span class="text-success fs-5">Skor Akhir: ${this.score}</span>`;
+    } else {
+      this.playSound("gameOver");
+      this.resultMessage.innerHTML = `⏳ Waktu habis!<br><span class="text-danger fs-5">Skor Akhir: ${this.score}</span>`;
+    }
+    
+    this.resultModal.show();
+  }
 }
 
-initGame();
+// Inisialisasi game setelah halaman dimuat
+document.addEventListener("DOMContentLoaded", () => {
+  new MemoryGame();
+});

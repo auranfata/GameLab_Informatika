@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Advanced Spatial Gestures & Color</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- MediaPipe dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Inter', sans-serif; }
+        
+        #webcam {
+            transform: scaleX(-1); /* Efek cermin untuk pergerakan alami */
+            object-fit: cover;
+            opacity: 0.4; /* Menggelapkan webcam agar hologram menonjol */
+        }
+        
+        #three-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none; /* Agar tidak memblokir klik pada tombol UI */
+            z-index: 10;
+        }
+        
+        .glass-panel {
+            background: rgba(0, 20, 50, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--theme-color, rgba(0, 102, 255, 0.3));
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            transition: border-color 0.3s ease;
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 10px currentColor;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+        
+        /* Animasi highlight saat berganti bentuk */
+        .shape-changed {
+            animation: pulse-theme 0.5s ease-out;
+        }
+
+        @keyframes pulse-theme {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.1); box-shadow: 0 0 30px var(--theme-color, #0066ff); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen">
+
+    <!-- Layar Loading -->
+    <div id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black text-white transition-opacity duration-700 ease-in-out">
+        <div id="spinner" class="w-16 h-16 border-4 border-[#0066ff] border-t-transparent rounded-full animate-spin mb-6 transition-colors duration-300"></div>
+        <h1 id="loading-title" class="text-3xl font-bold mb-2 text-[#0066ff] glow-text transition-colors duration-300">Selamat Datang di Spatial Gesture HIMASANTIKA</h1>
+        <p class="text-gray-400 text-sm max-w-md text-center">Mohon izinkan akses kamera.</p>
+    </div>
+
+    <video id="webcam" class="absolute inset-0 w-full h-full" autoplay playsinline></video>
+    <div id="three-canvas"></div>
+
+    <!-- Panel Warna (Kanan Atas) -->
+    <div class="absolute top-6 right-6 z-30 glass-panel p-3 rounded-2xl flex flex-col gap-4 pointer-events-auto items-center">
+        <p class="text-[10px] text-gray-300 font-bold tracking-widest">WARNA</p>
+        <button onclick="changeColor('red')" class="w-8 h-8 rounded-full bg-[#ff0033] hover:scale-110 border-2 border-white/50 shadow-[0_0_15px_rgba(255,0,51,0.6)] transition-all cursor-pointer focus:outline-none"></button>
+        <button onclick="changeColor('green')" class="w-8 h-8 rounded-full bg-[#00ff66] hover:scale-110 border-2 border-white/50 shadow-[0_0_15px_rgba(0,255,102,0.6)] transition-all cursor-pointer focus:outline-none"></button>
+        <button onclick="changeColor('blue')" class="w-8 h-8 rounded-full bg-[#0066ff] hover:scale-110 border-2 border-white/50 shadow-[0_0_15px_rgba(0,102,255,0.6)] transition-all cursor-pointer focus:outline-none"></button>
+    </div>
+
+    <!-- Status Bentuk Bawah -->
+    <div id="status-panel" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-30 glass-panel px-8 py-3 rounded-full transition-all duration-300">
+        <p id="status-text" class="text-[#0066ff] font-mono font-bold text-lg tracking-wider glow-text transition-colors duration-300">
+            BENTUK: LINGKARAN
+        </p>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('webcam');
+        const canvasContainer = document.getElementById('three-canvas');
+        const loadingScreen = document.getElementById('loading-screen');
+        const statusText = document.getElementById('status-text');
+        const statusPanel = document.getElementById('status-panel');
+
+        let scene, camera, renderer, currentMesh;
+        let targetPosition = new THREE.Vector3(0, 0, 0);
+        let targetScale = new THREE.Vector3(1, 1, 1);
+        
+        let lastShapeChangeTime = 0;
+        const SHAPE_COOLDOWN_MS = 1500;
+
+        // Definisi Tema Warna
+        const themeColors = {
+            blue: { hex: 0x0066ff, emissive: 0x002288, css: '#0066ff', border: 'rgba(0, 102, 255, 0.4)' },
+            red: { hex: 0xff0033, emissive: 0x660011, css: '#ff0033', border: 'rgba(255, 0, 51, 0.4)' },
+            green: { hex: 0x00ff66, emissive: 0x004411, css: '#00ff66', border: 'rgba(0, 255, 102, 0.4)' }
+        };
+
+        const material = new THREE.MeshStandardMaterial({ 
+            color: themeColors.blue.hex, 
+            emissive: themeColors.blue.emissive,
+            wireframe: true,
+            roughness: 0.1,
+            metalness: 0.8
+        });
+        
+        let pointLight;
+
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 12;
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            canvasContainer.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            pointLight = new THREE.PointLight(themeColors.blue.hex, 1, 100);
+            pointLight.position.set(0, 0, 10);
+            scene.add(pointLight);
+
+            const initialGeometry = new THREE.SphereGeometry(1.2, 16, 16);
+            currentMesh = new THREE.Mesh(initialGeometry, material);
+            scene.add(currentMesh);
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        // Fungsi mengganti warna dari klik UI
+        window.changeColor = function(colorKey) {
+            const theme = themeColors[colorKey];
+            if(!theme) return;
+            
+            // 1. Update 3D Material & Light
+            material.color.setHex(theme.hex);
+            material.emissive.setHex(theme.emissive);
+            if(pointLight) pointLight.color.setHex(theme.hex);
+
+            // 2. Update CSS Variables untuk efek Glassmorphism & Glow
+            document.documentElement.style.setProperty('--theme-color', theme.border);
+            
+            // 3. Update Text Colors
+            statusText.style.color = theme.css;
+            document.getElementById('header-title').style.color = theme.css;
+            document.getElementById('loading-title').style.color = theme.css;
+            document.getElementById('spinner').style.borderColor = theme.css;
+            document.getElementById('spinner').style.borderTopColor = 'transparent';
+        };
+
+        function setShape(type) {
+            const now = Date.now();
+            if (now - lastShapeChangeTime < SHAPE_COOLDOWN_MS) return;
+            lastShapeChangeTime = now;
+
+            scene.remove(currentMesh);
+            currentMesh.geometry.dispose();
+
+            let newGeometry;
+            let shapeName = "";
+
+            if (type === 'box') {
+                newGeometry = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+                shapeName = "KOTAK";
+            } else if (type === 'sphere') {
+                newGeometry = new THREE.SphereGeometry(1.2, 16, 16);
+                shapeName = "LINGKARAN";
+            } else if (type === 'triangle') {
+                newGeometry = new THREE.TetrahedronGeometry(1.5);
+                shapeName = "SEGITIGA";
+            }
+
+            const newMesh = new THREE.Mesh(newGeometry, material);
+            newMesh.position.copy(currentMesh.position);
+            newMesh.rotation.copy(currentMesh.rotation);
+            newMesh.scale.copy(currentMesh.scale);
+            
+            currentMesh = newMesh;
+            scene.add(currentMesh);
+
+            statusText.innerText = `BENTUK: ${shapeName}`;
+            statusPanel.classList.remove('shape-changed');
+            void statusPanel.offsetWidth;
+            statusPanel.classList.add('shape-changed');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (currentMesh) {
+                currentMesh.rotation.x += 0.005;
+                currentMesh.rotation.y += 0.01;
+
+                currentMesh.position.lerp(targetPosition, 0.15);
+                currentMesh.scale.lerp(targetScale, 0.15);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function getDistance(lm1, lm2) {
+            const dx = lm1.x - lm2.x;
+            const dy = lm1.y - lm2.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        let isInitialized = false;
+
+        function onResults(results) {
+            if (!isInitialized) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => loadingScreen.style.display = 'none', 700);
+                isInitialized = true;
+                // Set initial UI css variable
+                document.documentElement.style.setProperty('--theme-color', themeColors.blue.border);
+            }
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const hand0 = results.multiHandLandmarks[0];
+                const indexTip = hand0[8];
+                const thumbTip = hand0[4];
+
+                // 1. MANIPULASI POSISI (Telunjuk)
+                const xFlipped = 1 - indexTip.x;
+                const ndcX = (xFlipped * 2) - 1;
+                const ndcY = -(indexTip.y * 2) + 1;
+
+                const vector = new THREE.Vector3(ndcX, ndcY, 0.5);
+                vector.unproject(camera);
+                const dir = vector.sub(camera.position).normalize();
+                const dist3D = -camera.position.z / dir.z; 
+                const pos = camera.position.clone().add(dir.multiplyScalar(dist3D));
+                
+                targetPosition.copy(pos);
+
+                // 2. MANIPULASI SKALA (Jarak Cubitan)
+                const pinchDistance = getDistance(indexTip, thumbTip);
+                let scaleFactor = pinchDistance * 12;
+                scaleFactor = Math.max(0.4, Math.min(scaleFactor, 4.0));
+                targetScale.set(scaleFactor, scaleFactor, scaleFactor);
+
+                // 3. DETEKSI BENTUK DENGAN 2 TANGAN
+                if (results.multiHandLandmarks.length > 1) {
+                    const hand1 = results.multiHandLandmarks[1];
+                    const threshold = 0.08;
+
+                    const isTriangle = getDistance(hand0[8], hand1[8]) < threshold && 
+                                       getDistance(hand0[4], hand1[4]) < threshold;
+                    
+                    const isSquare = getDistance(hand0[8], hand1[4]) < threshold && 
+                                     getDistance(hand0[4], hand1[8]) < threshold;
+                    
+                    const isCircle = getDistance(hand0[12], hand1[12]) < threshold && 
+                                     getDistance(hand0[16], hand1[16]) < threshold;
+
+                    if (isTriangle) setShape('triangle');
+                    else if (isSquare) setShape('box');
+                    else if (isCircle) setShape('sphere');
+                }
+            }
+        }
+
+        async function startApp() {
+            initThreeJS();
+
+            const hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
+            }});
+
+            hands.setOptions({
+                maxNumHands: 2,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.7
+            });
+
+            hands.onResults(onResults);
+
+            const cameraUtils = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({image: videoElement});
+                },
+                width: 640,
+                height: 480
+            });
+
+            try {
+                await cameraUtils.start();
+            } catch (error) {
+                console.error("Gagal mengakses kamera:", error);
+                loadingScreen.innerHTML = `
+                    <div class="text-center p-6 bg-red-900 bg-opacity-80 rounded-xl max-w-sm border border-red-500">
+                        <h1 class="text-xl font-bold mb-2 text-white">Akses Kamera Ditolak</h1>
+                        <p class="text-gray-200 text-sm">Mohon izinkan akses kamera di browser Anda untuk menggunakan fitur ini.</p>
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = startApp;
+    </script>
+</body>
+</html>
